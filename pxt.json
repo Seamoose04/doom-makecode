@@ -1,0 +1,64 @@
+{
+    "name": "Doom-Makecode",
+    "description": "",
+    "dependencies": {
+        "device": "*"
+    },
+    "files": [
+        "main.ts",
+        "README.md",
+        "assets.json",
+        "util.ts",
+        "engine.ts",
+        "WAD.ts",
+        "wadUtil.ts",
+        "vertex.ts",
+        "thing.ts",
+        "linedef.ts",
+        "sidedef.ts",
+        "seg.ts",
+        "subsector.ts",
+        "sector.ts",
+        "node.ts",
+        "reject.ts",
+        "blockMap.ts",
+        "display.ts",
+        "minimap.ts",
+        "colormap.ts",
+        "palette.ts",
+        "texture.ts",
+        "pnames.ts",
+        "picture.ts",
+        "flat.ts"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "targetVersions": {
+        "target": "2.0.53",
+        "targetId": "arcade"
+    },
+    "supportedTargets": [
+        "arcade"
+    ],
+    "preferredEditor": "tsprj",
+    "languageRestriction": "javascript-only",
+    "palette": [
+        "#000000",
+        "#FFFFFF",
+        "#EDEDED",
+        "#DBDBDB",
+        "#C8C8C8",
+        "#B6B6B6",
+        "#A4A4A4",
+        "#929292",
+        "#808080",
+        "#6D6D6D",
+        "#5B5B5B",
+        "#494949",
+        "#373737",
+        "#242424",
+        "#121212",
+        "#000000"
+    ]
+}
