@@ -34,7 +34,7 @@ class Linedef {
             linedefs.push(new Linedef(
                 hexToSignedInt16(data.slice(i, i + 2)),
                 hexToSignedInt16(data.slice(i + 2, i + 4)),
-                hexToUnsignedInt16(data.slice(i + 4, i + 6)),
+                hexToSignedInt16(data.slice(i + 4, i + 6)),
                 hexToSignedInt16(data.slice(i + 6, i + 8)),
                 hexToSignedInt16(data.slice(i + 8, i + 10)),
                 hexToSignedInt16(data.slice(i + 10, i + 12)),

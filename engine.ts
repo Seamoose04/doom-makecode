@@ -113,31 +113,38 @@ class Engine {
     }
 
     private renderSeg(seg: Seg) {
-        const front = ()
         const start = this.levelData.vertexes[this.currentLevel][seg.startVertexId]
         const end = this.levelData.vertexes[this.currentLevel][seg.endVertexId]
 
         const linedef = this.levelData.linedefs[this.currentLevel][seg.linedefId]
         this.map.img.drawLine((start.x - this.player.x) / this.miniMapScale + 20, (start.y - this.player.y) / -this.miniMapScale + 30, (end.x - this.player.x) / this.miniMapScale + 20, (end.y - this.player.y) / -this.miniMapScale + 30, display.Color.WHITE)
-        // if ((linedef.flags & LinedefFlag.TWO_SIDED) != 0) {
-        //     return
+        if ((linedef.flags & LinedefFlag.TWO_SIDED) != 0) {
+            return
+        }
+        // if (linedef.frontSidedefId >= 0 && linedef.backSidedefId >= 0) {
+        //     const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
+        //     const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
+        //     const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId]
+        //     const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
+        //     if (frontSector.ceilingHeight != backSector.ceilingHeight) {
+        //         this.drawWall(
+        //             frontSidedef.upperTexName,
+        //             frontSector.floorTexName, Math.min(frontSector.ceilingHeight, backSector.ceilingHeight),
+        //             frontSector.ceilingTexName, Math.max(frontSector.ceilingHeight, backSector.ceilingHeight),
+        //             start, end
+        //         )
+        //     }
         // }
-        if (linedef.frontSidedefId >= 0 && linedef.backSidedefId >= 0) {
+        if (linedef.frontSidedefId >= 0) {
             const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
             const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
-            const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId]
-            const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
-            if (frontSector.ceilingHeight != backSector.ceilingHeight) {
-                this.drawWall(frontSidedef.upperTexName,
-                frontSector.floorTexName, Math.min(frontSector.ceilingHeight, backSector.ceilingHeight),
-                frontSector.ceilingTexName, Math.max(frontSector.ceilingHeight, backSector.ceilingHeight),
-                start, end)
-            }
-            // this.drawWall(this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId], start, end)
+            this.drawWall(
+                frontSidedef.middleTexName,
+                frontSector.floorTexName, frontSector.floorHeight,
+                frontSector.ceilingTexName, frontSector.ceilingHeight,
+                start, end
+            )
         }
-        // if (linedef.backSidedefId >= 0) {
-        //     this.drawWall(this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId], start, end)
-        // }
     }
 
     private drawWall(texName: string, floorTexName: string, floorHeight: number, ceilingTexName: string, ceilingHeight: number, start: Vertex, end: Vertex) {
@@ -215,6 +222,7 @@ class Engine {
         //      - the bottom edges (b1, b2) = floor
         //      - the top edges (t1, t2)   = ceiling
         //      - the full map-space width/height for texture
+        
         this.drawWallColumns(
             sX1, sX2,           // screen x for left & right side
             sY1, sY2,           // floor line

@@ -25,13 +25,13 @@ class Sidedef {
             if (upperTexName[0] == "-") {
                 upperTexName = null
             }
-            let middleTexName = hexToString(data.slice(i + 12, i + 20))
-            if (middleTexName[0] == "-") {
-                middleTexName = null
-            }
-            let lowerTexName = hexToString(data.slice(i + 20, i + 28))
+            let lowerTexName = hexToString(data.slice(i + 12, i + 20))
             if (lowerTexName[0] == "-") {
                 lowerTexName = null
+            }
+            let middleTexName = hexToString(data.slice(i + 20, i + 28))
+            if (middleTexName[0] == "-") {
+                middleTexName = null
             }
             let sectorNumber = hexToSignedInt16(data.slice(i + 28, i + 30))
             sidedefs.push(new Sidedef(
