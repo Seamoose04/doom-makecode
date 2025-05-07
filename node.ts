@@ -28,9 +28,9 @@ class Node {
 
         // If crossProduct > 0, the player is on the left side, otherwise on the right side
         if (crossProduct > 0) {
-            return { front: this.leftChildIdBinary, back: this.rightChildIdBinary}
-        } else {
             return { front: this.rightChildIdBinary, back: this.leftChildIdBinary}
+        } else {
+            return { front: this.leftChildIdBinary, back: this.rightChildIdBinary}
         }
     }
 

@@ -118,231 +118,256 @@ class Engine {
 
         const linedef = this.levelData.linedefs[this.currentLevel][seg.linedefId]
         this.map.img.drawLine((start.x - this.player.x) / this.miniMapScale + 20, (start.y - this.player.y) / -this.miniMapScale + 30, (end.x - this.player.x) / this.miniMapScale + 20, (end.y - this.player.y) / -this.miniMapScale + 30, display.Color.WHITE)
+
         if ((linedef.flags & LinedefFlag.TWO_SIDED) != 0) {
-            return
-        }
-        // if (linedef.frontSidedefId >= 0 && linedef.backSidedefId >= 0) {
-        //     const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
-        //     const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
-        //     const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId]
-        //     const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
-        //     if (frontSector.ceilingHeight != backSector.ceilingHeight) {
-        //         this.drawWall(
-        //             frontSidedef.upperTexName,
-        //             frontSector.floorTexName, Math.min(frontSector.ceilingHeight, backSector.ceilingHeight),
-        //             frontSector.ceilingTexName, Math.max(frontSector.ceilingHeight, backSector.ceilingHeight),
-        //             start, end
-        //         )
-        //     }
-        // }
-        if (linedef.frontSidedefId >= 0) {
-            const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
-            const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
-            this.drawWall(
-                frontSidedef.middleTexName,
-                frontSector.floorTexName, frontSector.floorHeight,
-                frontSector.ceilingTexName, frontSector.ceilingHeight,
-                start, end
-            )
+            if (linedef.frontSidedefId >= 0 && linedef.backSidedefId >= 0) {
+                const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
+                const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
+                const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId]
+                const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
+                if (frontSector.ceilingHeight > backSector.ceilingHeight) {
+                    this.drawWall(
+                        frontSidedef.upperTexName,
+                        null, backSector.ceilingHeight,
+                        frontSector.ceilingTexName, frontSector.ceilingHeight,
+                        start, end
+                    )
+                }
+                if (frontSector.floorHeight < backSector.floorHeight) {
+                    this.drawWall(
+                        frontSidedef.lowerTexName,
+                        frontSector.floorTexName, backSector.floorHeight,
+                        null, frontSector.floorHeight,
+                        start, end
+                    )
+                }
+            }
+        } else {
+            if (linedef.frontSidedefId >= 0) {
+                const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
+                const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
+                this.drawWall(
+                    frontSidedef.middleTexName,
+                    frontSector.floorTexName, frontSector.floorHeight,
+                    frontSector.ceilingTexName, frontSector.ceilingHeight,
+                    start, end
+                )
+            }
+            if (linedef.backSidedefId >= 0) {
+                const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
+                const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
+                this.drawWall(
+                    backSidedef.middleTexName,
+                    backSector.floorTexName, backSector.floorHeight,
+                    backSector.ceilingTexName, backSector.ceilingHeight,
+                    start, end
+                )
+            }
         }
     }
 
-    private drawWall(texName: string, floorTexName: string, floorHeight: number, ceilingTexName: string, ceilingHeight: number, start: Vertex, end: Vertex) {
-        // 2) Look up the sector and texture
-        const texture = engine.levelData.texture1.textures.find((t) => {
-            return t.name === texName;
-        });
-
-        // 3) Calculate horizontal and vertical map distances
-        //    a) Wall width in map units
-        const wallWidth = dist(start.x, start.y, end.x, end.y);
-        //    b) Wall height in map units
+    private drawWall(
+        texName: string,
+        floorTexName: string = null,
+        floorHeight: number,
+        ceilingTexName: string = null,
+        ceilingHeight: number,
+        start: Vertex,
+        end: Vertex
+      ) {
+        // ——————————————————————————————
+        // 1) Setup
+        const texture = this.levelData.texture1.textures.find(t => t.name === texName);
+        const texW = texture.width, texH = texture.height;
+        const dx = end.x - start.x, dy = end.y - start.y;
+        const wallWidth  = Math.sqrt(dx*dx + dy*dy)
         const wallHeight = ceilingHeight - floorHeight;
-
-        // 4) Transform the wall's start and end points into camera space
-        //    (player.x, player.y is camera location; player.a is angle)
-        const SN = this.sinLookup[this.player.a];
-        const CS = this.cosLookup[this.player.a];
-
-        // Start point (floor + ceiling)
-        let x1 = (start.x - this.player.x) * CS - (start.y - this.player.y) * SN;
-        let y1 = (start.y - this.player.y) * CS + (start.x - this.player.x) * SN;
-        let z1 = (floorHeight - this.player.z);  // floor
-        let z3 = z1 + wallHeight;                       // ceiling
-
-        // End point (floor + ceiling)
-        let x2 = (end.x - this.player.x) * CS - (end.y - this.player.y) * SN;
-        let y2 = (end.y - this.player.y) * CS + (end.x - this.player.x) * SN;
-        let z2 = (floorHeight - this.player.z);
-        let z4 = z2 + wallHeight;
-
-        // 5) Clip if behind the player
-        //    If both behind, skip
-        if (y1 < 1 && y2 < 1) {
-            return;
-        }
+        const pal = this.levelData.playpal[0].grays;
+        const cm  = this.levelData.colormaps[0].map;
+      
+        // camera‐space transform
+        const SN = this.sinLookup[this.player.a], CS = this.cosLookup[this.player.a];
+        let x1 = (start.x - this.player.x) * CS - (start.y - this.player.y) * SN,
+            y1 = (start.y - this.player.y) * CS + (start.x - this.player.x) * SN,
+            z1 = floorHeight - this.player.z,
+            z3 = z1 + wallHeight;
+      
+        let x2 = (end.x - this.player.x) * CS - (end.y - this.player.y) * SN,
+            y2 = (end.y - this.player.y) * CS + (end.x - this.player.x) * SN,
+            z2 = floorHeight - this.player.z,
+            z4 = z2 + wallHeight;
+      
+        // near‐plane clipping
+        let uL = 0, uR = wallWidth;
+        if (y1 < 1 && y2 < 1) return;
         if (y1 < 1) {
-            // Clip floor
-            const clippedB = this.clipBehindPlayer(x1, y1, z1, x2, y2, z2);
-            // Clip ceiling
-            const clippedT = this.clipBehindPlayer(x1, y1, z3, x2, y2, z4);
-            x1 = clippedB.x1; y1 = clippedB.y1; z1 = clippedB.z1;
-            z3 = clippedT.z1;
+            const clip     = this.clipBehindPlayer(x1, y1, z1, x2, y2, z2);
+            const clipTop  = this.clipBehindPlayer(x1, y1, z3, x2, y2, z4);
+            const s        = clip.s;
+            x1 = clip.x; y1 = clip.y; z1 = clip.z; z3 = clipTop.z;
+            uL = uR * s;
         }
         if (y2 < 1) {
-            const clippedB = this.clipBehindPlayer(x2, y2, z2, x1, y1, z1);
-            const clippedT = this.clipBehindPlayer(x2, y2, z4, x1, y1, z3);
-            x2 = clippedB.x1; y2 = clippedB.y1; z2 = clippedB.z1;
-            z4 = clippedT.z1;
+            const clip     = this.clipBehindPlayer(x2, y2, z2, x1, y1, z1);
+            const clipTop  = this.clipBehindPlayer(x2, y2, z4, x1, y1, z3);
+            const s        = 1 - clip.s;
+            x2 = clip.x; y2 = clip.y; z2 = clip.z; z4 = clipTop.z;
+            uR = uR * s;
         }
-
-        // 6) Project to screen space (simple perspective)
-        //    screenX = (x / y) * someScale + screenCenter
-        //    screenY = (z / y) * someScale + screenCenter
-        const scale = 200;  // Example scale factor
-        const screenCenterX = 80;
-        const screenCenterY = 60;
-
-        const sX1 = (x1 / y1) * scale + screenCenterX;
-        const sY1 = (z1 / y1) * scale + screenCenterY;
-        const sX3 = (x1 / y1) * scale + screenCenterX;
-        const sY3 = (z3 / y1) * scale + screenCenterY;
-
-        const sX2 = (x2 / y2) * scale + screenCenterX;
-        const sY2 = (z2 / y2) * scale + screenCenterY;
-        const sX4 = (x2 / y2) * scale + screenCenterX;
-        const sY4 = (z4 / y2) * scale + screenCenterY;
-
-        // 7) Calculate pseudo-colors for ceiling/floor fill
-        const cColor = ceilingTexName.charCodeAt(0) % 4 + 1;
-        const fColor = floorTexName.charCodeAt(0) % 4 + 1;
-
-        // 8) Now call the function that draws columns from left to right
-        //    We'll define:
-        //      - the bottom edges (b1, b2) = floor
-        //      - the top edges (t1, t2)   = ceiling
-        //      - the full map-space width/height for texture
+      
+        // ——————————————————————————————
+        // 2) Project endpoints to screen X
+        const scale = 200, cx = 80, cy = 60;
+        const sx1 = (x1 / y1) * scale + cx;
+        const sx2 = (x2 / y2) * scale + cx;
+      
+        // reciprocals and “height over depth”
+        let dL = y1,         dR = y2;
+        let invL = 1 / dL,    invR = 1 / dR;
+        let zBotL_p = z1 * invL,  zBotR_p = z2 * invR;
+        let zTopL_p = z3 * invL,  zTopR_p = z4 * invR;
+        let uL_p    = uL * invL,  uR_p    = uR * invR;
+      
+        // sort so x0 < x1p
+        let x0 = sx1, x1p = sx2;
+        if (sx2 < sx1) {
+            [x0, x1p]      = [sx2, sx1];
+            [invL, invR]  = [invR, invL];
+            [zBotL_p, zBotR_p] = [zBotR_p, zBotL_p];
+            [zTopL_p, zTopR_p] = [zTopR_p, zTopL_p];
+            [uL_p, uR_p]  = [uR_p, uL_p];
+        }
+      
+        // integer column bounds
+        const xStart = Math.max(0, Math.ceil(x0));
+        const xEnd   = Math.min(159, Math.floor(x1p));
+        const span   = xEnd - xStart;
+        if (span <= 0) return;
+      
+        // ——————————————————————————————
+        // 3) Per‐column loop using t
+        for (let x = x0; x <= x1p; x++) {
+            x = Math.round(x);
+            if (x < xStart || x >= xEnd) {
+                continue
+            }
+            const t    = (x - x0) / (x1p - x0);
         
-        this.drawWallColumns(
-            sX1, sX2,           // screen x for left & right side
-            sY1, sY2,           // floor line
-            sY3, sY4,           // ceiling line
-            texture,
-            wallWidth,          // the map units wide
-            wallHeight,         // the map units tall
-            cColor,
-            fColor
-        );
-    }
+            // perspective‐correct interpolation
+            const invZ     = invL + t * (invR - invL);
+            const zBot_p   = zBotL_p + t * (zBotR_p - zBotL_p);
+            const zTop_p   = zTopL_p + t * (zTopR_p - zTopL_p);
+            const uOZ      = uL_p    + t * (uR_p    - uL_p);
+        
+            // actual depth, texture X
+            const z        = 1 / invZ;
+            let   u        = (uOZ * z) % texW;
+            if (u < 0) u   += texW;
+            const tx       = Math.min(texW - 1, u | 0);
+        
+            // screen y‐range
+            const floorY = zBot_p * scale + cy;
+            const ceilY = zTop_p * scale + cy;
 
-
-    private drawWallColumns(
-        sx1: number, sx2: number,  // screen-space x of left & right
-        syFloorLeft: number, syFloorRight: number,   // bottom edges
-        syCeilLeft: number, syCeilRight: number,    // top edges
-        texture: MapTexture,
-        wallWidth: number,    // in map units
-        wallHeight: number,   // in map units
-        ceilingColor: number,
-        floorColor: number
-    ) {
-        // 1) Basic info
-        const texWidth = texture.width;
-        const texHeight = texture.height;
-
-        // 2) Figure out which one is "left" vs. "right" on screen
-        let leftX = Math.floor(Math.min(sx1, sx2));
-        let rightX = Math.floor(Math.max(sx1, sx2));
-        if (leftX === rightX) return;
-
-        // 3) Clip horizontally to [0..160), or your screen's actual width
-        leftX = Math.max(leftX, 0);
-        rightX = Math.min(rightX, 159);
-
-        // 4) Precompute U-range for horizontal texture mapping
-        //    If you want left side to be u=0 and right side to be u=wallWidth:
-        //    But we must ensure we handle if sx1 > sx2, etc.
-        //    We'll define a linear interpolation between (leftX -> uLeft) and (rightX -> uRight).
-        //    a) If sx1 < sx2 => normal, else we swap
-        let uLeft = 0;
-        let uRight = wallWidth;  // 1 unit = 1 pixel horizontally
-
-        // If sx1 > sx2, flip them so that as x goes from leftX to rightX, u goes from 0..wallWidth
-        if (sx1 > sx2) {
-            [uLeft, uRight] = [uRight, uLeft];
-        }
-
-        // 5) For each column in [leftX..rightX], do vertical draw
-        for (let screenX = leftX; screenX <= rightX; screenX++) {
-
-            // Fraction along the horizontal from leftX..rightX
-            const alphaX = (screenX - leftX) / (rightX - leftX);
-
-            // Interpolate U in map units: 0..wallWidth
-            // If sx1 < sx2, alphaX=0 => u=0, alphaX=1 => u=wallWidth
-            // If sx1 > sx2, alphaX=0 => u=wallWidth, alphaX=1 => u=0
-            let u = uLeft + alphaX * (uRight - uLeft);
-            // Wrap horizontally
-            let texCol = Math.floor(u) % texWidth;
-            if (texCol < 0) texCol += texWidth;
-
-            // Interpolate the floor & ceiling for this column
-            // We'll do a separate alpha for bottom edges:
-            // screenX is between sx1..sx2; alphaX is how far along that is
-            // bottom
-            const colFloor = syFloorLeft + alphaX * (syFloorRight - syFloorLeft);
-            // top
-            const colCeil = syCeilLeft + alphaX * (syCeilRight - syCeilLeft);
-
-            // figure out which is actually smaller or bigger
-            const screenBottom = Math.max(0, Math.min(colFloor, colCeil));
-            const screenTop = Math.min(119, Math.max(colFloor, colCeil));
-
-            // If this column is off-screen vertically, skip
-            if (screenBottom >= screenTop) continue;
-
-            // For each row from screenBottom..screenTop
-            // We want 1 map unit vertically = 1 texture pixel. 
-            // So if the total "wallHeight" in map units is spanned by (colTop-colBottom) in screen space:
-            const colHeight = (colCeil - colFloor);
-            // We treat 0..wallHeight as the full texture range in V.
-            // for y in [colFloor..colCeil], fractionY = (y - colFloor)/colHeight => v in [0..wallHeight]
-
-            for (let screenY = Math.floor(screenBottom); screenY <= Math.floor(screenTop); screenY++) {
-                const alphaY = (screenY - colFloor) / (colHeight || 1);
-                // map units up the wall:
-                const v = alphaY * wallHeight;
-                let texRow = Math.floor(v) % texHeight;
-                if (texRow < 0) texRow += texHeight;
-
-                // fetch the pixel from the texture
-                const texPixel = texture.pixels[texCol][texRow];
-
-                // Use your palette/colormap if needed
-                const color = this.levelData.playpal[0].grays[
-                    this.levelData.colormaps[0].map[texPixel]
-                ];
-
-                // Draw at (screenX, 120 - screenY), or whatever your coordinate system is
-                this.ctx.setPixel(screenX, 120 - screenY, color);
-            }
-
-            const clippedC = this.clipSegment(screenX, { yb: screenTop, yt: 120 });
-            if (clippedC) {
-                for (let y = clippedC.yb; y < clippedC.yt; y++) {
-                    this.ctx.setPixel(screenX, 120 - y, ceilingColor);
+            const bottom = Math.max(0,   Math.min(floorY, ceilY));
+            const top = Math.min(119, Math.max(floorY, ceilY));
+        
+            // 3a) wall span
+            const seg = this.clipSegment(x, { yb: bottom, yt: top });
+            if (seg) {
+                const yStart = Math.min(floorY, ceilY);
+                const yEnd   = Math.max(floorY, ceilY);
+                const h      = yEnd - yStart;
+                for (let yy = Math.ceil(yStart); yy <= yEnd; yy++) {
+                    yy = Math.round(yy);
+                    if (yy < bottom || yy >= top) {
+                        continue;
+                    }
+                    const beta = (yy - yStart) / h;
+                    let   ty   = ((beta * texH) | 0) % texH;
+                    if (ty < 0) ty += texH;
+                    const pix   = texture.pixels[tx][ty];
+                    const color = pal[cm[pix]];
+                    this.ctx.setPixel(x, 120 - yy, color);
                 }
             }
+        
+            // // 3b) ceiling fill
+            // if (ceilingTexName) {
+            //     const ccol = ceilingTexName.charCodeAt(0) % 4 + 1;
+            //     const cseg = this.clipSegment(x, { yb: top, yt: 120 });
+            //     if (cseg) {
+            //         for (let yy2 = cseg.yb | 0; yy2 < (cseg.yt | 0); yy2++) {
+            //             this.ctx.setPixel(x, 120 - yy2, ccol);
+            //         }
+            //     }
+            // }
+        
+            // // 3c) floor fill
+            // if (floorTexName) {
+            //     const fcol = floorTexName.charCodeAt(0) % 4 + 1;
+            //     const fseg = this.clipSegment(x, { yb: 0, yt: bottom });
+            //     if (fseg) {
+            //         for (let yy2 = fseg.yb | 0; yy2 < (fseg.yt | 0); yy2++) {
+            //             this.ctx.setPixel(x, 120 - yy2, fcol);
+            //         }
+            //     }
+            // }
+        }
+    }   
 
-            const clippedF = this.clipSegment(screenX, { yb: 0, yt: screenBottom });
-            if (clippedF) {
-                for (let y = clippedF.yb; y < clippedF.yt; y++) {
-                    this.ctx.setPixel(screenX, 120 - y, floorColor);
+    private drawFloorAndCeiling(
+        floorTexName: string | null,
+        ceilingTexName: string | null,
+        floorHeight: number,
+        ceilingHeight: number
+      ) {
+        if (!floorTexName && !ceilingTexName) return;
+        const width = 160, height = 120;
+        const cx = width / 2, cy = height / 2;
+      
+        // camera direction
+        const dirX = this.cosLookup[this.player.a];
+        const dirY = this.sinLookup[this.player.a];
+        // perpendicular plane (FOV)
+        const planeX = -dirY;
+        const planeY = dirX;
+      
+        // load textures
+        const floorTex   = floorTexName   ? this.levelData.texture1.textures.find(t => t.name === floorTexName) : null;
+        const ceilTex    = ceilingTexName ? this.levelData.texture1.textures.find(t => t.name === ceilingTexName) : null;
+      
+        // iterate scanlines
+        for (let y = cy + 1; y < height; y++) {
+            // row distance from camera
+            const p = y - cy;
+            const dist = (floorHeight - this.player.z) / p;
+        
+            // compute start and step of ray in world
+            const stepX = dist * (dirX + planeX * ((width - cx) / cx) - (dirX - planeX * ((0 - cx) / cx))) / width;
+            const stepY = dist * (dirY + planeY * ((width - cx) / cx) - (dirY - planeY * ((0 - cx) / cx))) / width;
+            let floorX = this.player.x + dist * (dirX - planeX);
+            let floorY = this.player.y + dist * (dirY - planeY);
+        
+            for (let x = 0; x < width; x++) {
+                if (floorTex) {
+                    const tx = ((floorX * floorTex.width) | 0) % floorTex.width;
+                    const ty = ((floorY * floorTex.height) | 0) % floorTex.height;
+                    const pix = floorTex.pixels[tx][ty];
+                    this.ctx.setPixel(x, y, this.levelData.playpal[0].grays[this.levelData.colormaps[0].map[pix]]);
                 }
+                if (ceilTex) {
+                    const tx = ((floorX * ceilTex.width) | 0) % ceilTex.width;
+                    const ty = ((floorY * ceilTex.height) | 0) % ceilTex.height;
+                    const pix = ceilTex.pixels[tx][ty];
+                    this.ctx.setPixel(x, height - y, this.levelData.playpal[0].grays[this.levelData.colormaps[0].map[pix]]);
+                }
+                floorX += stepX;
+                floorY += stepY;
             }
         }
-    }
-
+    }      
+    
     private clipSegment(x: number, segment: span): span | null {
         let clear = this.clipping[x];
         let newTop = segment.yt;
@@ -362,33 +387,18 @@ class Engine {
         return { yt: newTop, yb: newBottom }
     }
 
-    private addClipRange(x: number, segment: span) {
-        let clear = this.clipping[x];
-        let newTop = segment.yt;
-        let newBottom = segment.yb;
-
-        if (segment.yt < clear.yb || segment.yb > clear.yt) {
-            return
-        }
-
-        if (segment.yb < clear.yb) {
-            newBottom = clear.yb + 1
-        }
-        if (segment.yt > clear.yt) {
-            newTop = clear.yt - 1
-        }
-
-        clear.yt = Math.min(clear.yt, newBottom)
-        clear.yb = Math.max(clear.yb, newTop)
-    }
-
-    private clipBehindPlayer(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): { x1: number, y1: number, z1: number } {
-        let s = (0.1 - y1) / (y2 - y1);
-        x1 = x1 + s * (x2 - x1)
-        y1 = y1 + s * (y2 - y1)
-        z1 = z1 + s * (z2 - z1)
-        return { x1: x1, y1: y1, z1: z1 }
-    }
+    private clipBehindPlayer(
+        x1: number, y1: number, z1: number,
+        x2: number, y2: number, z2: number
+    ): { x: number, y: number, z: number, s: number } {
+        const s = (0.1 - y1) / (y2 - y1);
+        return {
+            x: x1 + s * (x2 - x1),
+            y: y1 + s * (y2 - y1),
+            z: z1 + s * (z2 - z1),
+            s: s
+        };
+    }    
 
     draw() {
         this.clearClipping()
