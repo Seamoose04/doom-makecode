@@ -83,7 +83,7 @@ class Engine {
     private clearClipping() {
         for (let i = 0; i < 160; i++) {
             this.clipping[i] = {
-                yt: 120,
+                yt: 119,
                 yb: 0
             }
         }
@@ -118,13 +118,14 @@ class Engine {
 
         const linedef = this.levelData.linedefs[this.currentLevel][seg.linedefId]
         this.map.img.drawLine((start.x - this.player.x) / this.miniMapScale + 20, (start.y - this.player.y) / -this.miniMapScale + 30, (end.x - this.player.x) / this.miniMapScale + 20, (end.y - this.player.y) / -this.miniMapScale + 30, display.Color.WHITE)
+        
+        const frontSidedef = linedef.frontSidedefId ? this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId] : null
+        const frontSector = frontSidedef ? this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber] : null
+        const backSidedef = linedef.backSidedefId ? this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId] : null
+        const backSector = backSidedef ? this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber] : null
 
         if ((linedef.flags & LinedefFlag.TWO_SIDED) != 0) {
-            if (linedef.frontSidedefId >= 0 && linedef.backSidedefId >= 0) {
-                const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
-                const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
-                const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId]
-                const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
+            if (frontSector && backSector) {
                 if (frontSector.ceilingHeight > backSector.ceilingHeight) {
                     this.drawWall(
                         frontSidedef.upperTexName,
@@ -136,16 +137,14 @@ class Engine {
                 if (frontSector.floorHeight < backSector.floorHeight) {
                     this.drawWall(
                         frontSidedef.lowerTexName,
-                        frontSector.floorTexName, backSector.floorHeight,
-                        null, frontSector.floorHeight,
+                        frontSector.floorTexName, frontSector.floorHeight,
+                        null, backSector.floorHeight,
                         start, end
                     )
                 }
             }
         } else {
-            if (linedef.frontSidedefId >= 0) {
-                const frontSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
-                const frontSector = this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber]
+            if (frontSector) {
                 this.drawWall(
                     frontSidedef.middleTexName,
                     frontSector.floorTexName, frontSector.floorHeight,
@@ -153,9 +152,7 @@ class Engine {
                     start, end
                 )
             }
-            if (linedef.backSidedefId >= 0) {
-                const backSidedef = this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId]
-                const backSector = this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber]
+            if (backSector) {
                 this.drawWall(
                     backSidedef.middleTexName,
                     backSector.floorTexName, backSector.floorHeight,
@@ -246,9 +243,8 @@ class Engine {
       
         // ——————————————————————————————
         // 3) Per‐column loop using t
-        for (let x = x0; x <= x1p; x++) {
-            x = Math.round(x);
-            if (x < xStart || x >= xEnd) {
+        for (let x = Math.floor(x0); x < x1p; x++) {
+            if (x < Math.floor(xStart) || x > Math.ceil(xEnd)) {
                 continue
             }
             const t    = (x - x0) / (x1p - x0);
@@ -273,46 +269,50 @@ class Engine {
             const top = Math.min(119, Math.max(floorY, ceilY));
         
             // 3a) wall span
-            const seg = this.clipSegment(x, { yb: bottom, yt: top });
+            const seg = this.clipSegment(x, { yb: bottom, yt: top }, true);
             if (seg) {
                 const yStart = Math.min(floorY, ceilY);
                 const yEnd   = Math.max(floorY, ceilY);
-                const h      = yEnd - yStart;
-                for (let yy = Math.ceil(yStart); yy <= yEnd; yy++) {
-                    yy = Math.round(yy);
-                    if (yy < bottom || yy >= top) {
+                for (let yy = Math.floor(yStart); yy < yEnd; yy++) {
+                    if (yy < Math.floor(seg.yb) || yy > Math.ceil(seg.yt)) {
                         continue;
                     }
-                    const beta = (yy - yStart) / h;
-                    let   ty   = ((beta * texH) | 0) % texH;
-                    if (ty < 0) ty += texH;
+                    const screenY = yy - cy;
+                    const heightAtPixel = (screenY / scale) * z;
+                    const zTop = zTop_p * z;
+                    const zBot = zBot_p * z;
+                    let ty = ((heightAtPixel - zBot) / (zTop - zBot)) * texH;
+                    ty = ty | 0;
+                    if (ty < 0) ty = 0;
+                    if (ty >= texH) ty = texH - 1;
+
                     const pix   = texture.pixels[tx][ty];
                     const color = pal[cm[pix]];
                     this.ctx.setPixel(x, 120 - yy, color);
                 }
             }
         
-            // // 3b) ceiling fill
-            // if (ceilingTexName) {
-            //     const ccol = ceilingTexName.charCodeAt(0) % 4 + 1;
-            //     const cseg = this.clipSegment(x, { yb: top, yt: 120 });
-            //     if (cseg) {
-            //         for (let yy2 = cseg.yb | 0; yy2 < (cseg.yt | 0); yy2++) {
-            //             this.ctx.setPixel(x, 120 - yy2, ccol);
-            //         }
-            //     }
-            // }
+            // 3b) ceiling fill
+            if (ceilingTexName) {
+                const ccol = ceilingTexName.charCodeAt(0) % 4 + 1;
+                const cseg = this.clipSegment(x, { yb: top, yt: 120 }, true);
+                if (cseg) {
+                    for (let yy2 = cseg.yb | 0; yy2 < (cseg.yt | 0); yy2++) {
+                        this.ctx.setPixel(x, 120 - yy2, ccol);
+                    }
+                }
+            }
         
-            // // 3c) floor fill
-            // if (floorTexName) {
-            //     const fcol = floorTexName.charCodeAt(0) % 4 + 1;
-            //     const fseg = this.clipSegment(x, { yb: 0, yt: bottom });
-            //     if (fseg) {
-            //         for (let yy2 = fseg.yb | 0; yy2 < (fseg.yt | 0); yy2++) {
-            //             this.ctx.setPixel(x, 120 - yy2, fcol);
-            //         }
-            //     }
-            // }
+            // 3c) floor fill
+            if (floorTexName) {
+                const fcol = floorTexName.charCodeAt(0) % 4 + 1;
+                const fseg = this.clipSegment(x, { yb: 0, yt: bottom }, true);
+                if (fseg) {
+                    for (let yy2 = fseg.yb | 0; yy2 < (fseg.yt | 0); yy2++) {
+                        this.ctx.setPixel(x, 120 - yy2, fcol);
+                    }
+                }
+            }
         }
     }   
 
@@ -368,22 +368,31 @@ class Engine {
         }
     }      
     
-    private clipSegment(x: number, segment: span): span | null {
+    private clipSegment(x: number, segment: span, updateRange: boolean=false): span | null {
         let clear = this.clipping[x];
-        let newTop = segment.yt;
-        let newBottom = segment.yb;
+        let newTop = Math.min(segment.yt, 119);
+        let newBottom = Math.max(segment.yb, 0);
 
-        if (segment.yt < clear.yb || segment.yb > clear.yt) {
+        if (newTop < clear.yb || newBottom > clear.yt || clear.yb >= clear.yt) {
             return null
         }
 
-        if (segment.yb < clear.yb) {
-            newBottom = clear.yb + 1
+        if (newBottom < clear.yb) {
+            newBottom = clear.yb
         }
-        if (segment.yt > clear.yt) {
-            newTop = clear.yt - 1
+        if (newTop > clear.yt) {
+            newTop = clear.yt
         }
-
+        if (updateRange) {
+            if (newTop == clear.yt && newBottom < clear.yt) {
+                clear.yt = newBottom - 1
+            }
+            if (newBottom == clear.yb && newTop > clear.yb) {
+                clear.yb = newTop + 1
+            }
+            this.clipping[x] = clear
+        }
+        
         return { yt: newTop, yb: newBottom }
     }
 
@@ -416,7 +425,7 @@ class Engine {
         this.map.clearMap()
     }
 
-    movePlayer(cx: number, cy: number, c: boolean, speed: number) {
+    movePlayer(cx: number, cy: number, c: boolean, speed: number, turnSpeed: number) {
         if (c) {
             //strafe left/right
             let dx = this.sinLookup[this.player.a] * speed
@@ -440,13 +449,13 @@ class Engine {
         } else {
             //look left/right
             if (cx > 0) {
-                this.player.a++
+                this.player.a += turnSpeed
                 if (this.player.a >= 360) {
                     this.player.a -= 360
                 }
             }
             if (cx < 0) {
-                this.player.a--
+                this.player.a -= turnSpeed
                 if (this.player.a < 0) {
                     this.player.a += 360
                 }
