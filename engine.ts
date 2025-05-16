@@ -119,14 +119,21 @@ class Engine {
         const linedef = this.levelData.linedefs[this.currentLevel][seg.linedefId]
         this.map.img.drawLine((start.x - this.player.x) / this.miniMapScale + 20, (start.y - this.player.y) / -this.miniMapScale + 30, (end.x - this.player.x) / this.miniMapScale + 20, (end.y - this.player.y) / -this.miniMapScale + 30, display.Color.WHITE)
         
-        const frontSidedef = linedef.frontSidedefId ? this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId] : null
-        const frontSector = frontSidedef ? this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber] : null
-        const backSidedef = linedef.backSidedefId ? this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId] : null
-        const backSector = backSidedef ? this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber] : null
+        let frontSidedef: Sidedef | null = linedef.frontSidedefId ? this.levelData.sidedefs[this.currentLevel][linedef.frontSidedefId] : null
+        let frontSector: Sector | null = frontSidedef ? this.levelData.sectors[this.currentLevel][frontSidedef.sectorNumber] : null
+        let backSidedef: Sidedef | null = linedef.backSidedefId ? this.levelData.sidedefs[this.currentLevel][linedef.backSidedefId] : null
+        let backSector: Sector | null = backSidedef ? this.levelData.sectors[this.currentLevel][backSidedef.sectorNumber] : null
 
+        const v1 = this.levelData.vertexes[this.currentLevel][linedef.startVertexId], v2 = this.levelData.vertexes[this.currentLevel][linedef.endVertexId]
+        const playerside = (v2.x - v1.x) * (this.player.y - v1.y) - (v2.y - v1.y) * (this.player.x - v1.x)
+        if (playerside > 0) {
+            [frontSidedef, backSidedef] = [backSidedef, frontSidedef];
+            [frontSector, backSector] = [backSector, frontSector];
+        }
+        
         if ((linedef.flags & LinedefFlag.TWO_SIDED) != 0) {
             if (frontSector && backSector) {
-                if (frontSector.ceilingHeight > backSector.ceilingHeight) {
+                if (frontSector.ceilingHeight > backSector.ceilingHeight && frontSidedef.upperTexName) {
                     this.drawWall(
                         frontSidedef.upperTexName,
                         null, backSector.ceilingHeight,
@@ -134,13 +141,21 @@ class Engine {
                         start, end
                     )
                 }
-                if (frontSector.floorHeight < backSector.floorHeight) {
+                if (frontSector.floorHeight < backSector.floorHeight && frontSidedef.lowerTexName) {
                     this.drawWall(
                         frontSidedef.lowerTexName,
                         frontSector.floorTexName, frontSector.floorHeight,
                         null, backSector.floorHeight,
                         start, end
                     )
+                }
+                if (frontSidedef.middleTexName) {
+                    this.drawWall(
+                        frontSidedef.middleTexName,
+                        frontSector.floorTexName, frontSector.floorHeight,
+                        frontSector.ceilingTexName, frontSector.ceilingHeight,
+                        start, end
+                    );
                 }
             }
         } else {
@@ -149,14 +164,6 @@ class Engine {
                     frontSidedef.middleTexName,
                     frontSector.floorTexName, frontSector.floorHeight,
                     frontSector.ceilingTexName, frontSector.ceilingHeight,
-                    start, end
-                )
-            }
-            if (backSector) {
-                this.drawWall(
-                    backSidedef.middleTexName,
-                    backSector.floorTexName, backSector.floorHeight,
-                    backSector.ceilingTexName, backSector.ceilingHeight,
                     start, end
                 )
             }
