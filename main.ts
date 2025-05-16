@@ -1,9 +1,9 @@
 let engine = new Engine(new WAD(getWAD()), 0)
 console.log("loaded!")
 
-// engine.clear()
-// engine.draw()
-// 
+engine.clear()
+engine.draw()
+
 // controller.A.onEvent(ControllerButtonEvent.Pressed, () => {
 //     if (display.frames.length > 0) {
 //         scene.setBackgroundImage(display.popFrame())

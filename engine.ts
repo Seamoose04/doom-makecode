@@ -109,6 +109,7 @@ class Engine {
         for (let segIndex = segStart; segIndex < segEnd; segIndex++) {
             const seg = this.levelData.segs[this.currentLevel][segIndex]
             this.renderSeg(seg)
+            // display.pushFrame(this.ctx.clone())
         }
     }
 
@@ -152,8 +153,8 @@ class Engine {
                 if (frontSidedef.middleTexName) {
                     this.drawWall(
                         frontSidedef.middleTexName,
-                        frontSector.floorTexName, frontSector.floorHeight,
-                        frontSector.ceilingTexName, frontSector.ceilingHeight,
+                        null, frontSector.floorHeight,
+                        null, frontSector.ceilingHeight,
                         start, end
                     );
                 }
@@ -276,7 +277,7 @@ class Engine {
             const top = Math.min(119, Math.max(floorY, ceilY));
         
             // 3a) wall span
-            const seg = this.clipSegment(x, { yb: bottom, yt: top }, true);
+            const seg = this.clipSegment(x, { yb: bottom, yt: top }, false);
             if (seg) {
                 const yStart = Math.min(floorY, ceilY);
                 const yEnd   = Math.max(floorY, ceilY);
@@ -302,7 +303,7 @@ class Engine {
             // 3b) ceiling fill
             if (ceilingTexName) {
                 const ccol = ceilingTexName.charCodeAt(0) % 4 + 1;
-                const cseg = this.clipSegment(x, { yb: top, yt: 120 }, true);
+                const cseg = this.clipSegment(x, { yb: top, yt: 119 }, false);
                 if (cseg) {
                     for (let yy2 = cseg.yb | 0; yy2 < (cseg.yt | 0); yy2++) {
                         this.ctx.setPixel(x, 120 - yy2, ccol);
@@ -313,13 +314,16 @@ class Engine {
             // 3c) floor fill
             if (floorTexName) {
                 const fcol = floorTexName.charCodeAt(0) % 4 + 1;
-                const fseg = this.clipSegment(x, { yb: 0, yt: bottom }, true);
+                const fseg = this.clipSegment(x, { yb: 0, yt: bottom }, false);
                 if (fseg) {
                     for (let yy2 = fseg.yb | 0; yy2 < (fseg.yt | 0); yy2++) {
                         this.ctx.setPixel(x, 120 - yy2, fcol);
                     }
                 }
             }
+
+            let fullSeg = { yb: floorTexName ? 0 : bottom, yt: ceilingTexName ? 119 : top }
+            this.clipSegment(x, fullSeg, true)
         }
     }   
 
@@ -391,10 +395,10 @@ class Engine {
             newTop = clear.yt
         }
         if (updateRange) {
-            if (newTop == clear.yt && newBottom < clear.yt) {
+            if (newTop == clear.yt) {
                 clear.yt = newBottom - 1
             }
-            if (newBottom == clear.yb && newTop > clear.yb) {
+            if (newBottom == clear.yb) {
                 clear.yb = newTop + 1
             }
             this.clipping[x] = clear
